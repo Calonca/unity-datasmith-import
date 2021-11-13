@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Xml;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Profiling;
 
 public class MetadataManager : MonoBehaviour
 {
@@ -40,6 +41,7 @@ public class MetadataManager : MonoBehaviour
     // Following method reads the xml file and display its content
     public string getDataFromXml()
     {
+        Profiler.BeginSample("Test get data from xml");
         Debug.Log(xmlName);
         TextAsset textXml = Resources.Load<TextAsset>(xmlName);
         XmlDocument xmlDoc = new XmlDocument();
@@ -60,6 +62,7 @@ public class MetadataManager : MonoBehaviour
 
         }
 
+        Profiler.EndSample();
         return output;
     }
 

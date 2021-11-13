@@ -9,7 +9,7 @@ using UnityEngine;
 public class UmeshModel
 {
     //The coords are floats in centimeters
-    private Vector3[] ReadFloatCoords(BinaryReader br, uint nSets)
+    private static Vector3[] ReadFloatCoords(BinaryReader br, uint nSets)
     {
         Vector3[] vects = new Vector3[nSets];
         for (int i = 0; i < nSets; i++)
@@ -25,7 +25,7 @@ public class UmeshModel
 
     
     //Reads tris inverted
-    private uint[] ReadTrisInverted(BinaryReader br, uint n)
+    private static uint[] ReadTrisInverted(BinaryReader br, uint n)
     {
         uint x, y, z;
         List<uint> lint = new List<uint>();
@@ -43,7 +43,7 @@ public class UmeshModel
     
 
     //The coords are floats in centimeters
-    private Vector2[] ReadFloatCoords2D(BinaryReader br, uint nSets)
+    private static Vector2[] ReadFloatCoords2D(BinaryReader br, uint nSets)
     {
         Vector2[] vects = new Vector2[nSets];
         for (int i = 0; i < nSets; i++)
@@ -57,7 +57,7 @@ public class UmeshModel
     }
 
     //The triangles are uint
-    private uint[] ReadUintArray(BinaryReader br, uint n)
+    private static uint[] ReadUintArray(BinaryReader br, uint n)
     {
         uint[] arr = new uint[n];
         for (int i = 0; i < n; i++)
@@ -98,7 +98,7 @@ public class UmeshModel
         return HexStr(d);
     }
 
-    public Mesh ImportFromString(string filename){
+    public static Mesh ImportFromString(string filename){
         Mesh mesh = new Mesh();
         mesh.Clear();
 
@@ -187,8 +187,8 @@ public class UmeshModel
                     //escalate triangles[i] to new vertex
                 }
             }
-            printCoordsSets(vxList.ToArray(), "vertices");
-            Debug.Log("The triangles are:\n" + string.Join(", ", triangles));
+            //printCoordsSets(vxList.ToArray(), "vertices");
+            //Debug.Log("The triangles are:\n" + string.Join(", ", triangles));
             mesh.vertices = vxList.ToArray();
             mesh.triangles = triangles;
 
@@ -202,14 +202,14 @@ public class UmeshModel
             uint normalsLenght = r.ReadUInt32();
             //Debug.Log("normalLenght: " + normalsLenght);
             Vector3[] normals = ReadFloatCoords(r, normalsLenght);
-            printCoordsSets(normals, "normals");
+            //printCoordsSets(normals, "normals");
             //mesh.normals = normals;
 
             //Uvs
             uint uvLenght = r.ReadUInt32();
             //Debug.Log("uvLenght: " + uvLenght);
             Vector2[] uvs = ReadFloatCoords2D(r, uvLenght);
-            printCoordsSets(uvs, "uvs");
+            //printCoordsSets(uvs, "uvs");
             //mesh.uv = uvs;
 
             /*string meshName = "Testmesh";
@@ -222,17 +222,17 @@ public class UmeshModel
 
     }
 
-    private List<int> listConv(List<Tuple<int, int>> t)
+    private static List<int> listConv(List<Tuple<int, int>> t)
     {
         return t.Select(i=>i.Item2).ToList();
     }
-    public void printCoordsSets(Vector3[] coords,string name)
+    public static void printCoordsSets(Vector3[] coords,string name)
     {
         string toPrint = coords.Select(cs=>cs.ToString()).Aggregate((acc,s)=>acc+"\n"+s);
         Debug.Log("The " + name + " are:\n" + toPrint);
     }
 
-    public void printCoordsSets(Vector2[] coords, string name)
+    public static void printCoordsSets(Vector2[] coords, string name)
     {
         string toPrint = coords.Select(cs => cs.ToString()).Aggregate((acc, s) => acc + "\n" + s);
         Debug.Log("The " + name + " are:\n" + toPrint);

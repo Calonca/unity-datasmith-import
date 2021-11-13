@@ -5,13 +5,18 @@ using UnityEditor.AssetImporters;
 using UnityEditor;
 using System.Xml.Serialization;
 using System.Collections.Generic;
+using UnityEngine.Profiling;
+using System;
 
 [ScriptedImporter(version: 1, ext: "udatasmith", AllowCaching = true)]
 public class datasmithImporter : ScriptedImporter
 {
+    
+
     private string filePath;
     private string filename;
     private Dictionary<string,Material> materials = new Dictionary<string, Material>();
+    private Dictionary<string, Tuple<Mesh,Material>> meshMatPairs = new Dictionary<string, Tuple<Mesh, Material>>();
     GameObject mainObj;
     AssetImportContext ctx;
 
@@ -22,12 +27,12 @@ public class datasmithImporter : ScriptedImporter
     //Called when a new asset is found
     public override void OnImportAsset(AssetImportContext ctx)
     {
+        Profiler.BeginSample("Test importer lulli");
         this.ctx = ctx;
         Debug.Log("Started reading");
-        UmeshModel model = new UmeshModel();
         Mesh mesh = new Mesh();
         if (debug) { 
-            mesh = model.ImportFromString("elongedX.udsmesh");
+            mesh = UmeshModel.ImportFromString("elongedX.udsmesh");
         }
 
         int pos = ctx.assetPath.LastIndexOf('.');
@@ -95,12 +100,15 @@ public class datasmithImporter : ScriptedImporter
             ctx.AddObjectToAsset("cubeREd", redcube);
         }
         createMaterials(xmlDoc);
+        createMeshes(xmlDoc);
         
         //Main obj can also be null since it DatasmithUnreal will become the new mainObj
         if (!debug)
             recursiveTreeBuilding(mainObj,xmlDoc.SelectSingleNode("DatasmithUnrealScene"));
 
         AssetDatabase.Refresh();
+
+        Profiler.EndSample();
     }
 
     private void recursiveTreeBuilding(GameObject unityParent,XmlNode node)
@@ -144,28 +152,24 @@ public class datasmithImporter : ScriptedImporter
                         metaManager.xmlName = filename;
 
                         MeshCollider meshCollider = act.AddComponent<MeshCollider>();
-
                         string meshName = node.FirstChild.Attributes[0].InnerText;
 
-                        Debug.Log("meshName: " + meshName);
-                        //meshName = "ff936cc591c8fdcb55a5dab1e4cb8e85";
-                        XmlNode meshNode = xmlDoc.SelectSingleNode("/DatasmithUnrealScene/StaticMesh[@name='" + meshName + "']");
 
                         //Debug.Log("data: " + meshNode.Attributes[0].InnerText);
-                        string materialName = meshNode.LastChild.Attributes.GetNamedItem("name").InnerText;
-                        Debug.Log("materialName: " + materialName);
+
+                        //Debug.Log("materialName: " + materialName);
                         //Material mat = Resources.Load<Material>(filename+"/"+materialName);
-                        Material mat = materials[materialName];
-                        act.GetComponent<MeshRenderer>().material = mat;
+                        
+                        act.GetComponent<MeshRenderer>().material = meshMatPairs[meshName].Item2;
                         //ctx.AddObjectToAsset(materialName, mat);
 
                         //MeshFilter sc = act.AddComponent(typeof(MeshFilter)) as MeshFilter;
-                        UmeshModel umeshImporter = new UmeshModel();
-                        Mesh mesh = umeshImporter.ImportFromString("Resources\\" + meshNode.FirstChild.Attributes[0].InnerText);
+
+                        Mesh mesh = meshMatPairs[meshName].Item1;
 
                         meshCollider.sharedMesh = mesh;
 
-                        ctx.AddObjectToAsset(meshName, mesh);
+
                         act.GetComponent<MeshFilter>().mesh = mesh;
                     }
                  
@@ -194,13 +198,31 @@ public class datasmithImporter : ScriptedImporter
     }
 
     //Creates materials with or without textures and saves their name
+    private void createMeshes(XmlDocument xmlDoc)
+    {
+      
+        XmlSerializer serializer = new XmlSerializer(typeof(MaterialXML));
+
+        XmlNodeList nodes = xmlDoc.SelectNodes("/DatasmithUnrealScene/StaticMesh");
+        foreach (XmlNode meshNode in nodes)
+        {
+            string meshName = meshNode.Attributes[0].InnerText;
+            Mesh mesh = UmeshModel.ImportFromString("Resources\\" + meshNode.FirstChild.Attributes[0].InnerText);
+            //XmlNode meshNode = xmlDoc.SelectSingleNode("/DatasmithUnrealScene/StaticMesh[@name='" + meshName + "']");
+            string materialName = meshNode.LastChild.Attributes.GetNamedItem("name").InnerText;
+
+            ctx.AddObjectToAsset(meshName, mesh);
+            meshMatPairs.Add(meshName, new Tuple<Mesh,Material>(mesh,materials[materialName]));
+        }
+
+
+    }
+
+    //Creates materials with or without textures and saves their name
     private void createMaterials(XmlDocument xmlDoc)
     {
-        AssetDatabase.CreateFolder("Assets/Resources/", filename);
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
 
-        bool saveMatsOnDisk=false;
+        bool saveMatsOnDisk = false;
         XmlSerializer serializer = new XmlSerializer(typeof(MaterialXML));
 
         XmlNodeList nodes = xmlDoc.SelectNodes("/DatasmithUnrealScene/MasterMaterial");
@@ -211,7 +233,7 @@ public class datasmithImporter : ScriptedImporter
             material.setProperties(node, xmlDoc.SelectSingleNode("/DatasmithUnrealScene"));
             if (saveMatsOnDisk)
             {
-                AssetDatabase.CreateAsset(material.mat, "Assets/Resources/"+filename+"/" + material.name + ".mat");
+                AssetDatabase.CreateAsset(material.mat, "Assets/Resources/" + material.name + ".mat");
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
             }
