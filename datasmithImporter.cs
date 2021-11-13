@@ -4,12 +4,14 @@ using System.IO;
 using UnityEditor.AssetImporters;
 using UnityEditor;
 using System.Xml.Serialization;
+using System.Collections.Generic;
 
 [ScriptedImporter(version: 1, ext: "udatasmith", AllowCaching = true)]
 public class datasmithImporter : ScriptedImporter
 {
     private string filePath;
     private string filename;
+    private Dictionary<string,Material> materials = new Dictionary<string, Material>();
     GameObject mainObj;
     AssetImportContext ctx;
 
@@ -152,7 +154,8 @@ public class datasmithImporter : ScriptedImporter
                         //Debug.Log("data: " + meshNode.Attributes[0].InnerText);
                         string materialName = meshNode.LastChild.Attributes.GetNamedItem("name").InnerText;
                         Debug.Log("materialName: " + materialName);
-                        Material mat = Resources.Load<Material>(materialName);
+                        //Material mat = Resources.Load<Material>(filename+"/"+materialName);
+                        Material mat = materials[materialName];
                         act.GetComponent<MeshRenderer>().material = mat;
                         //ctx.AddObjectToAsset(materialName, mat);
 
@@ -193,6 +196,9 @@ public class datasmithImporter : ScriptedImporter
     //Creates materials with or without textures and saves their name
     private void createMaterials(XmlDocument xmlDoc)
     {
+        AssetDatabase.CreateFolder("Assets/Resources/", filename);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
 
         bool saveMatsOnDisk=false;
         XmlSerializer serializer = new XmlSerializer(typeof(MaterialXML));
@@ -205,13 +211,14 @@ public class datasmithImporter : ScriptedImporter
             material.setProperties(node, xmlDoc.SelectSingleNode("/DatasmithUnrealScene"));
             if (saveMatsOnDisk)
             {
-                AssetDatabase.CreateAsset(material.mat, "Assets/Resources/" + material.name + ".mat");
+                AssetDatabase.CreateAsset(material.mat, "Assets/Resources/"+filename+"/" + material.name + ".mat");
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
             }
             else
             {
                 ctx.AddObjectToAsset(material.name, material.mat);
+                materials.Add(material.name, material.mat);
             }
         }
 
