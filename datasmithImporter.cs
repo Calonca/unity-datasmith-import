@@ -111,6 +111,8 @@ public class datasmithImporter : ScriptedImporter
         Profiler.EndSample();
     }
 
+
+    XmlSerializer serializer = new XmlSerializer(typeof(TransformXML));
     private void recursiveTreeBuilding(GameObject unityParent,XmlNode node)
     {
         switch (node.Name)
@@ -126,7 +128,6 @@ public class datasmithImporter : ScriptedImporter
                     string nodelabel = node.Attributes.GetNamedItem("label").InnerText;
                     GameObject act = new GameObject(nodelabel);
                     act.name = nodelabel;
-                    XmlSerializer serializer = new XmlSerializer(typeof(TransformXML));
 
 
                     bool isActorMesh = (node.Name == "ActorMesh");
@@ -207,6 +208,7 @@ public class datasmithImporter : ScriptedImporter
         foreach (XmlNode meshNode in nodes)
         {
             string meshName = meshNode.Attributes[0].InnerText;
+            Debug.Log("Reading mesh: "+meshName);
             Mesh mesh = UmeshModel.ImportFromString("Resources\\" + meshNode.FirstChild.Attributes[0].InnerText);
             //XmlNode meshNode = xmlDoc.SelectSingleNode("/DatasmithUnrealScene/StaticMesh[@name='" + meshName + "']");
             string materialName = meshNode.LastChild.Attributes.GetNamedItem("name").InnerText;

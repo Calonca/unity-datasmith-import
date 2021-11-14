@@ -172,19 +172,21 @@ public class UmeshModel
             List<Vector3> vxList = new List<Vector3>(vertices);
             //Debug.Log("Test 4 before pos 2 " + triangles..FindIndex(x=>x==4));
 
+            //I am using triangleLength as an upper bound lenght but it can be smaller
+            bool[] alreadyPresent = new bool[triangleLenght];
+
             for (int i =0; i < triangleLenght; i++)
             {
                 int vertexNum = triangles[i];
-                //Debug.Log("Testing vertex: "+vertexNum);
-                int prevIndex = Array.FindIndex(triangles,v=>v==vertexNum);
-                //Debug.Log("Pre index: " + prevIndex);
-                if (prevIndex<i&&prevIndex>-1)//Array contains triangles[i] after i
+                if (alreadyPresent[vertexNum])//Array contains triangles[i] after i
                 {
                     //Debug.Log("Added vertex");
                     triangles[i] = vxList.Count();
                     vxList.Add(vxList[vertexNum]);
-                    //copy vertex
-                    //escalate triangles[i] to new vertex
+                }
+                else
+                {
+                    alreadyPresent[vertexNum] = true;
                 }
             }
             //printCoordsSets(vxList.ToArray(), "vertices");
