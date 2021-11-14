@@ -156,11 +156,6 @@ public class UmeshImporter
         uint filesize = 0;
         FileStream fileStream = new FileStream("Assets\\"+filename, FileMode.Open, FileAccess.Read);
 
-        string hex="";
-        int zeros =0;
-        
-
-        int readBytes=0;
         using (BinaryReader r = new BinaryReader(fileStream, System.Text.Encoding.UTF8)){
 
             r.ReadBytes(8);

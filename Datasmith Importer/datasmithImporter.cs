@@ -171,7 +171,7 @@ public class datasmithImporter : ScriptedImporter
     private void createMeshes(XmlDocument xmlDoc)
     {
       
-        XmlSerializer serializer = new XmlSerializer(typeof(MaterialXML));
+        XmlSerializer serializer = new XmlSerializer(typeof(MaterialImporter));
 
         XmlNodeList nodes = xmlDoc.SelectNodes("/DatasmithUnrealScene/StaticMesh");
         foreach (XmlNode meshNode in nodes)
@@ -210,7 +210,7 @@ public class datasmithImporter : ScriptedImporter
     bool saveMatsOnDisk = false;
     private void createMaterial(XmlDocument xmlDoc, XmlNode node,bool isPbr)
     {
-        Material material = MaterialXML.getMaterialFromNode(node, xmlDoc.SelectSingleNode("/DatasmithUnrealScene"),isPbr);
+        Material material = MaterialImporter.getMaterialFromNode(node, xmlDoc.SelectSingleNode("/DatasmithUnrealScene"),isPbr);
         if (saveMatsOnDisk)
         {
             AssetDatabase.CreateAsset(material, "Assets/Resources/" + material.name + ".mat");

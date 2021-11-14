@@ -4,7 +4,7 @@ using System.Xml;
 using System.Xml.Serialization;
 using UnityEngine;
 
-public class MaterialXML
+public class MaterialImporter
 {
     //These properties are not used, here to show what properties are presnt int he file
     private Color DiffuseColor = new Color(0f,0f,0f,1f);
