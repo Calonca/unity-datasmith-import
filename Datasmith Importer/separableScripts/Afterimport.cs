@@ -8,24 +8,6 @@ using UnityEngine;
 public class Afterimport : MonoBehaviour
 {
 
-    static void SetLayerRecursively(GameObject obj, int newLayer)
-    {
-        if (null == obj)
-        {
-            return;
-        }
-
-        obj.layer = newLayer;
-
-        foreach (Transform child in obj.transform)
-        {
-            if (null == child)
-            {
-                continue;
-            }
-            Afterimport.SetLayerRecursively(child.gameObject, newLayer);
-        }
-    }
 
     /// <summary>
     /// This method is called after the model is imported
@@ -33,7 +15,6 @@ public class Afterimport : MonoBehaviour
     /// <param name="obj">The imported model</param>
     public static void afterImport(GameObject obj)
     {
-        SetLayerRecursively(obj, 5);//5 is uiì
         Debug.Log("Import Complete");
     }
 
