@@ -12,8 +12,8 @@ using UnityEngine.UI;
 /// <summary>
 /// Handles elements properties
 /// </summary>
-public class MetadataManager : MonoBehaviour,IPointerDownHandler, IPointerClickHandler//, IBeginDragHandler, IDragHandler, IEndDragHandler
-{
+public class MetadataManager : MonoBehaviour
+
     public string revitId;
     public string smithId;
     public string xmlNode;
@@ -21,9 +21,7 @@ public class MetadataManager : MonoBehaviour,IPointerDownHandler, IPointerClickH
 
     public void OnMouseDown()
     {
-
-        //Debug.Log(getDataFromXml());
-        //MoveWithWand.setText(getDataFromXml());
+        Debug.Log(getDataFromXml());
     }
 
     /// <summary>
@@ -67,44 +65,4 @@ public class MetadataManager : MonoBehaviour,IPointerDownHandler, IPointerClickH
         
     }
 
-    float timeClicked;
-    public void OnPointerClick(PointerEventData eventData)
-    {
-        if (eventData.GetWandButton() == HoloTrackWand.Buttons.Primary)
-        {
-            if (MoveWithWand.mode == MoveWithWand.optionsEn.spawnOption)
-            {
-
-                GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                sphere.transform.parent = gm.transform;
-                sphere.transform.position = eventData.pointerCurrentRaycast.worldPosition;
-                sphere.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
-                sphere.GetComponent<MeshRenderer>().material.color = Random.ColorHSV(0f, 1f, 1f, 1f, 0.5f, 1f);
-            }else if (MoveWithWand.mode == MoveWithWand.optionsEn.movePiece)
-            {
-                MoveWithWand.selectedPart = gameObject;
-            }
-
-            else
-            {
-                Debug.Log("Someone clicked with primary button");
-                //float distance = Vector3.Distance(eventData.worldPosition, transform.position);
-                if (Time.time-timeClicked<0.25f)
-                    gm.transform.parent.GetComponent<MoveWithWand>().setText(getDataFromXml());
-            }
-
-        }
-
-    }
-
-    public void OnPointerDown(PointerEventData eventData)
-    {
-        if (eventData.GetWandButton() == HoloTrackWand.Buttons.Primary)
-        {
-            if (MoveWithWand.mode == MoveWithWand.optionsEn.moveModel){
-                timeClicked = Time.time;
-            }
-
-        }
-    }
 }
