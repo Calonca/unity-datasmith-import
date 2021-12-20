@@ -1,9 +1,12 @@
-using System.Globalization;
+#if UNITY_EDITOR
+using System.Linq;
 using System.Text.RegularExpressions;
-using System.Xml;
-using System.Xml.Serialization;
+using System.Xml.Linq;
 using UnityEngine;
 
+/// <summary>
+/// Utiliy class to import materials
+/// </summary>
 public class MaterialImporter
 {
     //These properties are not used, here to show what properties are presnt int he file
@@ -34,32 +37,34 @@ public class MaterialImporter
     private static float parsetoFloat(MatchCollection mc,int idx)
     {
         //Parses to float using the point as the decimal separator
-        return float.Parse(mc[idx].Value, CultureInfo.InvariantCulture);
+        return datasmithImporter.parsetoFloat(mc[idx].Value);
     }
 
-    public static Material getMaterialFromNode(XmlNode matNode, XmlNode docRoot, bool isPbr)
+
+
+    public static Material getMaterialFromNode(XElement matNode, XElement docRoot, bool isPbr)
     {
         Material mat = new Material(Shader.Find("Standard"));
-        mat.name = matNode.Attributes.GetNamedItem("name").InnerText;
+        mat.name = matNode.Attribute("name").Value;
 
         if (!isPbr)
         {
-            int type = int.Parse(matNode.Attributes.GetNamedItem("Type").InnerText);//1 is default, 2 is glass
-            XmlNodeList testList = matNode.SelectNodes("KeyValueProperty");
-            foreach (XmlNode keyTypeValueNode in testList)
+            int type = int.Parse(matNode.Attribute("Type").Value);//1 is default, 2 is glass
+            var testList = matNode.Elements("KeyValueProperty");
+            foreach (XElement keyTypeValueNode in testList)
             {
-                string name = keyTypeValueNode.Attributes.GetNamedItem("name").InnerText;
-                string value = keyTypeValueNode.Attributes.GetNamedItem("val").InnerText;
+                string name = keyTypeValueNode.Attribute("name").Value;
+                string value = keyTypeValueNode.Attribute("val").Value;
                 switch (name)
                 {
                     case "DiffuseColor":
                         {
-                            mat.color = getColorFromString(value);
+                            mat.color = getColorFromRGBString(value);
                             break;
                         }
                     case "DiffuseMap":
                         {
-                            mat.mainTexture = getTextureNamed(docRoot, value);
+                            mat.mainTexture = importTextureNamed(docRoot, value);
                             break;
                         }
 
@@ -70,22 +75,27 @@ public class MaterialImporter
             }
         } else
         {
-            XmlNode expressions = matNode.FirstChild;
-            foreach (XmlNode NameConstantPairs in expressions.ChildNodes)
+            XElement expressions = matNode.Element("Expressions");
+            foreach (XElement NameConstantPairs in expressions.Elements())
             {
-                string name = NameConstantPairs.Attributes.GetNamedItem("Name").InnerText;
+                XAttribute n = NameConstantPairs.Attribute("Name");
+                string name = (n!=null?n.Value:NameConstantPairs.Name.LocalName);
+                if (name == null)
+                    name = "Color";
                 switch (name)
                 {
+                    case "Color":
                     case "Base Color":
                         {
-                            string constant = NameConstantPairs.Attributes.GetNamedItem("constant").InnerText;
-                            mat.color = getColorFromString(constant);
+                            string constant = NameConstantPairs.Attribute("constant").Value;
+                            mat.color = getColorFromRGBString(constant);
                             break;
                         }
                     case "Base Texture":
+                    case "Texture":
                         {
-                            string pathName = NameConstantPairs.Attributes.GetNamedItem("PathName").InnerText;
-                            mat.mainTexture = getTextureNamed(docRoot, pathName);
+                            string pathName = NameConstantPairs.Attribute("PathName").Value;
+                            mat.mainTexture = importTextureNamed(docRoot, pathName);
                             break;
                         }
 
@@ -95,19 +105,21 @@ public class MaterialImporter
                 }
             }
         }
+        mat.enableInstancing = true;
+
         return mat;
     }
 
-    private static Texture2D getTextureNamed(XmlNode docRoot, string pathName)
+    private static Texture2D importTextureNamed(XElement docRoot, string texName)
     {
-        XmlNode textureNode = docRoot.SelectSingleNode("//Texture[@name='" + pathName + "']");
-        string filename = textureNode.Attributes.GetNamedItem("file").InnerText;
+        var textureNode = docRoot.Elements("Texture").Where(a=>a.Attribute("name").Value== texName).First();
+        string filename = textureNode.Attribute("file").Value;
         int pos = filename.LastIndexOf('.');
         Texture2D tex = Resources.Load(filename.Substring(0, pos)) as Texture2D;
         return tex;
     }
 
-    private static Color getColorFromString(string value)
+    private static Color getColorFromRGBString(string value)
     {
         Regex rgbaRegex = new Regex(@"[+-]?([0-9]*[.])?[0-9]+");
         MatchCollection rgba = rgbaRegex.Matches(value);
@@ -118,3 +130,5 @@ public class MaterialImporter
             parsetoFloat(rgba, 3));
     }
 }
+
+#endif

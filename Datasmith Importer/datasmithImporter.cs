@@ -1,35 +1,55 @@
 using UnityEngine;
 using System.Xml;
 using System.IO;
+#if UNITY_EDITOR
 using UnityEditor.AssetImporters;
+#endif
 using UnityEditor;
 using System.Xml.Serialization;
 using System.Collections.Generic;
 using UnityEngine.Profiling;
 using System;
+using System.Xml.Linq;
+using System.Linq;
+using System.Globalization;
 
+/// <summary>
+/// Most important class for the importer, uses the other classes to import the datasmith assets
+/// </summary>
+#if UNITY_EDITOR
 [ScriptedImporter(version: 1, ext: "udatasmith", AllowCaching = true)]
 public class datasmithImporter : ScriptedImporter
 {
+    public CollideLevel ColliderComplexity = CollideLevel.Mesh;
     
-
+    public bool importUvs = true;
+    public bool debugMode = false;
+    public bool meshesHaveMiltipleMaterials = true;
+    public Vector3 modelRotation = new Vector3(90f,0f,0f);
     private string filePath;
     private string filename;
+
     private Dictionary<string,Material> materials = new Dictionary<string, Material>();
-    private Dictionary<string, Tuple<Mesh,Material>> meshMatPairs = new Dictionary<string, Tuple<Mesh, Material>>();
+    private Dictionary<string, Tuple<Mesh,Material[]>> meshAndMaterials = new Dictionary<string, Tuple<Mesh, Material[]>>();
+    private Dictionary<string,XElement> metadata = new Dictionary<string, XElement>();
+
     GameObject mainObj;
     AssetImportContext ctx;
 
-    XmlDocument xmlDoc;
+    XElement xmlDoc;
 
     bool debug = false;
 
-    //Called when a new asset is found
+    /// <summary>
+    /// This method is called by unity when a new asset .udatasmith is found or when a user want to remiport the asset.
+    /// Removes invalid charachter from the .udatasmith files and parses the result as an .xml file
+    /// Creates materials, metadata, meshes, and model tree stucture and assings it to the ctx MainObject
+    /// </summary>
+    /// <param name="ctx">Contains the filePath and a prefab is created from the assigned MainObject</param>
     public override void OnImportAsset(AssetImportContext ctx)
     {
-        Profiler.BeginSample("Test importer large");
         this.ctx = ctx;
-        Debug.Log("Started reading");
+        //Debug.Log("Started reading");
 
         int pos = ctx.assetPath.LastIndexOf('.');
         filePath = ctx.assetPath.Substring(0, pos);
@@ -37,20 +57,16 @@ public class datasmithImporter : ScriptedImporter
         pos = filePath.LastIndexOf('/') + 1;
         filename = filePath.Substring(pos, filePath.Length - pos);
 
-        if (!File.Exists(filePath + ".xml"))
-        {
-            Debug.Log("not exist");
-            xmlDoc = createXMLAsset();
-        }
-        else
-        {
-            TextAsset textXml = Resources.Load<TextAsset>(filename);
-            xmlDoc = new XmlDocument();
-            xmlDoc.LoadXml(textXml.text);
-        }
+        xmlDoc = LoadXMLAsset();
+        var currentDirectory = Directory.GetCurrentDirectory();
+        var purchaseOrderFilepath = Path.Combine(currentDirectory+"\\Assets\\Resources", filename+".xml");
+
+        //xmlDoc = XElement.Load(purchaseOrderFilepath);
+
 
         //Create prefab
         mainObj = new GameObject(filename);
+        mainObj.transform.rotation = Quaternion.Euler(modelRotation.x, modelRotation.y, modelRotation.z);
 
         // 'cube' is a GameObject and will be automatically converted into a prefab
         // (Only the 'Main Asset' is eligible to become a Prefab.)
@@ -58,78 +74,132 @@ public class datasmithImporter : ScriptedImporter
         ctx.SetMainObject(mainObj);
 
         createMaterials(xmlDoc);
+        metadata = getMetadata(xmlDoc);
 
         //Main obj can also be null since it DatasmithUnreal will become the new mainObj
         if (!debug)
         {
             createMeshes(xmlDoc);
-            recursiveTreeBuilding(mainObj, xmlDoc.SelectSingleNode("DatasmithUnrealScene"));
+            recursiveTreeBuilding(mainObj, xmlDoc);
         }
-        AssetDatabase.Refresh();
 
-        Profiler.EndSample();
+        Afterimport.afterImport(mainObj);
+        AssetDatabase.Refresh();
     }
 
-
-    XmlSerializer serializer = new XmlSerializer(typeof(TransformXML));
-    private void recursiveTreeBuilding(GameObject unityParent,XmlNode node)
+    /// <summary>
+    /// Gets the metadata from the document
+    /// </summary>
+    /// <returns>A Dictionary of (datasmithId,xml element containign metadata)</returns>
+    private Dictionary<string, XElement> getMetadata(XElement xmlDoc)
     {
-        switch (node.Name)
+        return xmlDoc.Elements("MetaData")
+            .ToLookup(n => n.Attribute("reference").Value.Substring(6), n =>n)
+            .ToDictionary(n=>n.Key,n=>n.First());
+        //Debug.Log(String.Join(", ",metadata.Values.Select(n=>n.Attribute("reference").Value).ToList()));
+    }
+
+    public static float parsetoFloat(string a)
+    {
+        //Parses to float using the point as the decimal separator
+        return float.Parse(a, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Contains position, scale, rotation
+    /// </summary>
+    float[] psr = new float[10];
+
+    /// <summary>
+    /// For each child in the xml element creates a corresponding Unity Object recursively
+    /// </summary>
+    /// <param name="unityParent">The parent unity game object that will contain the new branches</param>
+    /// <param name="node">A branch that will be added to the unity parent</param>
+    private void recursiveTreeBuilding(GameObject unityParent,XElement node)
+    {
+
+        switch (node.Name.LocalName)
         {
             case "DatasmithUnrealScene":
-                foreach (XmlNode child in node.ChildNodes)
+                foreach (XElement child in node.Elements())
                     recursiveTreeBuilding(mainObj,child);
                 break;
             case "Actor":
             case "ActorMesh":            
                 {
-                    //Debug.Log("Code for actorMesh and actor");
-                    string nodelabel = node.Attributes.GetNamedItem("label").InnerText;
-                    string smithId = node.Attributes.GetNamedItem("name").InnerText;
+                    //Debug.Log("Code for "+node.Name.LocalName);
+                    XAttribute nodelabel = node.Attribute("label");
 
-                    GameObject act = new GameObject(nodelabel+", ["+smithId+"]");//For now is smithId but it shoud become revitId
+                    string smithId = node.FirstAttribute.Value;//name
+
+                    GameObject act = new GameObject((nodelabel!=null?nodelabel.Value:"no label")+", ["+smithId+"]");//For now is smithId but it shoud become revitId
                     //act.name = nodelabel;
 
 
+
                     bool isActorMesh = (node.Name == "ActorMesh");
-                    XmlNode transformNode = node.ChildNodes[isActorMesh ? 1 : 0];//Temporary, should be taken by name
-                    TransformXML t = (TransformXML)serializer.Deserialize(new XmlNodeReader(transformNode));
-                    act.transform.position = t.getPos();
-                    act.transform.localScale = t.getScale();
-                    act.transform.rotation = t.getRot();
+                    XElement transformNode = node.Element("Transform");//Temporary, should be taken by name
+
+                    psr = transformNode.Attributes().Take(10).Select(a=> parsetoFloat(a.Value)).ToArray();
+
+                    act.transform.position = new Vector3(psr[0]/100, psr[1]/100, psr[2]/100);
+                    act.transform.localScale = new Vector3(psr[3], psr[4], psr[5]);
+                    act.transform.rotation = new Quaternion(psr[6], psr[7], psr[8],psr[9]);
                     act.transform.parent = unityParent.transform;
-
-
 
                     if (isActorMesh)
                     {
-                        act.AddComponent<MeshFilter>();
-                        act.AddComponent<MeshRenderer>();
+
                         //act.AddComponent<Renderer>();
 
                         MetadataManager metaManager = act.AddComponent<MetadataManager>();
                         metaManager.revitId = "test";
                         metaManager.smithId = smithId;
-                        metaManager.xmlName = filename;
+                        //metaManager.xmlNode = xmlDoc.Elements("MetaData")
+                        //.Single(o => o.Attribute("reference").Value == "Actor." + smithId);
+                        metaManager.gm = mainObj;
 
-                        MeshCollider meshCollider = act.AddComponent<MeshCollider>();
-                        string meshName = node.FirstChild.Attributes[0].InnerText;
+                        XElement metaNode = null;
+                        metadata.TryGetValue(node.Attribute("name").Value, out metaNode);
+                        if (metaNode!=null)
+                            metaManager.xmlNode = metaNode.ToString();
+
+
+                        //Debug.Log("ref is :" + metaManager.xmlNode.Attribute("reference").Value);
+
+
+
+                        string meshName = node.Element("mesh").Attribute("name").Value;
 
 
                         //Debug.Log("data: " + meshNode.Attributes[0].InnerText);
-
-                        //Debug.Log("materialName: " + materialName);
-                        //Material mat = Resources.Load<Material>(filename+"/"+materialName);
-                        
-                        act.GetComponent<MeshRenderer>().material = meshMatPairs[meshName].Item2;
                         //ctx.AddObjectToAsset(materialName, mat);
 
                         //MeshFilter sc = act.AddComponent(typeof(MeshFilter)) as MeshFilter;
 
-                        Mesh mesh = meshMatPairs[meshName].Item1;
+                        Mesh mesh = meshAndMaterials[meshName].Item1;
 
-                        meshCollider.sharedMesh = mesh;
 
+
+                        if (ColliderComplexity==CollideLevel.Mesh)
+                        {
+                            MeshCollider meshCollider = act.AddComponent<MeshCollider>();
+                            meshCollider.sharedMesh = mesh;
+                        }
+                        else if (ColliderComplexity == CollideLevel.Box) 
+                            act.AddComponent<BoxCollider>();
+
+
+                        act.AddComponent<MeshFilter>();
+                        act.AddComponent<MeshRenderer>();
+
+                        MeshRenderer mr = act.GetComponent<MeshRenderer>();
+                        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                        mr.receiveShadows = false;
+
+                        if (meshesHaveMiltipleMaterials)
+                            mr.materials = meshAndMaterials[meshName].Item2;
+                        else mr.material = meshAndMaterials[meshName].Item2[0];
 
                         act.GetComponent<MeshFilter>().mesh = mesh;
                     }
@@ -137,7 +207,7 @@ public class datasmithImporter : ScriptedImporter
                     //Add metadata
                     ctx.AddObjectToAsset(smithId, act);
 
-                    foreach (XmlNode child in node.LastChild.ChildNodes)
+                    foreach (XElement child in node.Elements("children").Elements())
                         recursiveTreeBuilding(act, child);
                 }
                  break;
@@ -147,6 +217,7 @@ public class datasmithImporter : ScriptedImporter
             case "MetaData":
             case "Texture":
             case "MasterMaterial":
+            case "UEPbrMaterial":
             case "StaticMesh":
 
             case "Camera":
@@ -167,39 +238,79 @@ public class datasmithImporter : ScriptedImporter
 
     }
 
-    //Creates materials with or without textures and saves their name
-    private void createMeshes(XmlDocument xmlDoc)
+    /// <summary>
+    /// Removes original meshes from gm and children leaving only the colliders
+    /// </summary>
+    public static void removeOriginalMeshes(Transform gm)
     {
-      
-        XmlSerializer serializer = new XmlSerializer(typeof(MaterialImporter));
+        MeshFilter[] meshFilters = gm.GetComponentsInChildren<MeshFilter>();
+        MeshRenderer[] meshRenderer = gm.GetComponentsInChildren<MeshRenderer>();
 
-        XmlNodeList nodes = xmlDoc.SelectNodes("/DatasmithUnrealScene/StaticMesh");
-        foreach (XmlNode meshNode in nodes)
+        foreach (MeshFilter c in meshFilters)
         {
-            string meshName = meshNode.Attributes[0].InnerText;
-            Debug.Log("Reading mesh: "+meshName);
-            Mesh mesh = UmeshImporter.ImportFromString("Resources\\" + meshNode.FirstChild.Attributes[0].InnerText);
-            //XmlNode meshNode = xmlDoc.SelectSingleNode("/DatasmithUnrealScene/StaticMesh[@name='" + meshName + "']");
-            string materialName = meshNode.LastChild.Attributes.GetNamedItem("name").InnerText;
-
-            ctx.AddObjectToAsset(meshName, mesh);
-            meshMatPairs.Add(meshName, new Tuple<Mesh,Material>(mesh,materials[materialName]));
+            DestroyImmediate(c);
         }
+        foreach (MeshRenderer c in meshRenderer)
+        {
+            DestroyImmediate(c);
+        }
+    }
 
+    /// <summary>
+    /// Creates meshes and adds them to the meshAndMaterials dictionary
+    /// </summary>
+    private void createMeshes(XElement xmlDoc)
+    {
+        IEnumerable<XElement> nodes = xmlDoc.Elements("StaticMesh");
+        string[] paths = nodes.Select(n => n.Element("file").Attribute("path").Value)
+            .Distinct().ToArray();
+
+        int i = 0;
+
+        Dictionary<string, Mesh> parallelImport = parallelImportMeshes(paths);
+        foreach (XElement meshNode in nodes)
+        {
+            string meshName = meshNode.Attribute("name").Value;
+            Mesh m = parallelImport[meshNode.Element("file").Attribute("path").Value];
+            ctx.AddObjectToAsset(meshName,m);
+            meshAndMaterials.Add(meshName, new Tuple<Mesh,Material[]>(m, meshNode.Elements("Material").Select(e => materials[e.Attribute("name").Value]).ToArray()));
+            i++;
+        }
 
     }
 
-    //Creates materials with or without textures and saves their name
-    private void createMaterials(XmlDocument xmlDoc)
+    /// <summary>
+    /// Imports and returns the meshes present in the input dictionary
+    /// </summary>
+    private Dictionary<string,Mesh> parallelImportMeshes(string[] paths)
     {
+        Dictionary<string, IntermediateMesh> a = paths.AsParallel().AsUnordered().Select(n =>
+            new KeyValuePair<string, IntermediateMesh>(
+                n,
+                UmeshImporter.ImportFromFilepath("Resources\\" + n, 1, this))
+                ).ToDictionary(x => x.Key, x => x.Value);
 
-        XmlNodeList nodes = xmlDoc.SelectNodes("/DatasmithUnrealScene/MasterMaterial");
-        foreach (XmlNode node in nodes)
+        return a.Select(n =>
+            new KeyValuePair<string, Mesh>(
+                n.Key,
+                n.Value.addDataToUniyMesh())
+                ).ToDictionary(x => x.Key, x => x.Value);
+    }
+
+
+    /// <summary>
+    /// Creates materials with or without textures and saves their name
+    /// </summary>
+    /// <param name="xmlDoc"></param>
+    private void createMaterials(XElement xmlDoc)
+    {
+        IEnumerable<XElement> nodes = xmlDoc.Elements("MasterMaterial");
+        foreach (XElement node in nodes)
         {
             createMaterial(xmlDoc, node,false);
         }
-        XmlNodeList pbrNodes = xmlDoc.SelectNodes("/DatasmithUnrealScene/UEPbrMaterial");
-        foreach (XmlNode node in pbrNodes)
+        IEnumerable<XElement> pbrNodes = xmlDoc.Elements("UEPbrMaterial");
+        foreach (XElement node in pbrNodes)
         {
             createMaterial(xmlDoc, node,true);
         }
@@ -207,81 +318,37 @@ public class datasmithImporter : ScriptedImporter
 
     }
 
-    bool saveMatsOnDisk = false;
-    private void createMaterial(XmlDocument xmlDoc, XmlNode node,bool isPbr)
+    /// <summary>
+    /// Imports and adds a materials to the materials dictionary
+    /// </summary>
+    private void createMaterial(XElement xmlDoc, XElement materialNode,bool isPbr)
     {
-        Material material = MaterialImporter.getMaterialFromNode(node, xmlDoc.SelectSingleNode("/DatasmithUnrealScene"),isPbr);
-        if (saveMatsOnDisk)
-        {
-            AssetDatabase.CreateAsset(material, "Assets/Resources/" + material.name + ".mat");
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-        }
-        else
-        {
-            ctx.AddObjectToAsset(material.name, material);
-            materials.Add(material.name, material);
-        }
-        //Debug.Log("Added material named: " + material.name);
+        Material material = MaterialImporter.getMaterialFromNode(materialNode, xmlDoc,isPbr);
+        ctx.AddObjectToAsset(material.name, material);
+        materials.Add(material.name, material);
     }
 
-    private XmlDocument createXMLAsset()
+    private XElement LoadXMLAsset()
     {
 
         string text = File.ReadAllText(filePath + ".udatasmith");
         
         text = text.Replace("&", "&amp;");//Not the best method https://stackoverflow.com/questions/1473826/parsing-xml-with-ampersand
-        TextAsset textAsset = new TextAsset(text);
-        XmlDocument xmlDoc = new XmlDocument();
-        xmlDoc.LoadXml(text);
+        
+        XElement xEl = XElement.Parse(text);
+        //xEl.Save(filePath + ".xml");
 
-
-        xmlDoc.Save(filePath + ".xml");
-
-        //AssetDatabase.CreateAsset(textAsset, filePath+".xml");
-        //AssetDatabase.SaveAssets();
-        //AssetDatabase.Refresh();
-        return xmlDoc;
+        return xEl;
     }
 
 
 }
-[XmlRoot(ElementName = "Transform")]
-public class TransformXML
+#endif
+
+/// <summary>
+/// The the collider level of the model
+/// </summary>
+public enum CollideLevel
 {
-    [XmlAttribute(AttributeName = "tx")]
-    public float tx;
-    [XmlAttribute(AttributeName = "ty")]
-    public float ty;
-    [XmlAttribute(AttributeName = "tz")]
-    public float tz;
-
-    [XmlAttribute(AttributeName = "sx")]
-    public float sx;
-    [XmlAttribute(AttributeName = "sy")]
-    public float sy;
-    [XmlAttribute(AttributeName = "sz")]
-    public float sz;
-
-    [XmlAttribute(AttributeName = "qx")]
-    public float qx;
-    [XmlAttribute(AttributeName = "qy")]
-    public float qy;
-    [XmlAttribute(AttributeName = "qz")]
-    public float qz;
-    [XmlAttribute(AttributeName = "qw")]
-    public float qw;
-    public Vector3 getPos()
-    {
-        return new Vector3(tx/100,ty/100,tz/100);
-    }
-    public Vector3 getScale()
-    {
-        return new Vector3(sx, sy, sz);
-    }
-    public Quaternion getRot()
-    {
-        return new Quaternion(qx,qy,qz,qw);
-    }
-
+    None, Box, Mesh
 }
