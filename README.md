@@ -5,6 +5,7 @@ Installation
 
 1. Move the scripts inside your Unity project  
 2. Copy your model and its asset folder inside the Resources folder 
-3. To see the metadata hover oven an object
+
+I am working on increasing performance, reducing the size of the final models and supporting more materials properties and types.
 
 If you want to decimate the mesh after importing use the with-decimation branch
