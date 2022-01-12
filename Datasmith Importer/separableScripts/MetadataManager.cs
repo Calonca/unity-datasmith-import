@@ -12,7 +12,7 @@ using UnityEngine.UI;
 /// <summary>
 /// Handles elements properties
 /// </summary>
-public class MetadataManager : MonoBehaviour
+public class MetadataManager : MonoBehaviour {
 
     public string revitId;
     public string smithId;
