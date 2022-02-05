@@ -10,26 +10,28 @@ using System;
 
 public class MeshCombineWizard : ScriptableWizard
 {
-	public bool is32bit = true;
-	public GameObject combineParent;
+    public bool is32bit = true;
+    public GameObject combineParent;
 
 
-	[MenuItem("Optimization/Mesh Combine Wizard")]
-	static void CreateWizard()
-	{
-		var wizard = DisplayWizard<MeshCombineWizard>("Mesh Combine Wizard");
+    [MenuItem("Optimization/Mesh Combine Wizard")]
+    static void CreateWizard()
+    {
+        var wizard = DisplayWizard<MeshCombineWizard>("Mesh Combine Wizard");
 
-		// If there is selection, and the selection of one Scene object, auto-assign it
-		var selectionObjects = Selection.objects;
-		if (selectionObjects != null && selectionObjects.Length == 1) {
-			var firstSelection = selectionObjects[0] as GameObject;
-			if (firstSelection != null) {
-				wizard.combineParent = firstSelection;
-			}
-		}
-	}
+        // If there is selection, and the selection of one Scene object, auto-assign it
+        var selectionObjects = Selection.objects;
+        if (selectionObjects != null && selectionObjects.Length == 1)
+        {
+            var firstSelection = selectionObjects[0] as GameObject;
+            if (firstSelection != null)
+            {
+                wizard.combineParent = firstSelection;
+            }
+        }
+    }
 
-	public void OnWizardCreate()
+    public void OnWizardCreate()
     {
 
         // Verify there is existing object root, ptherwise bail.
@@ -77,7 +79,7 @@ public class MeshCombineWizard : ScriptableWizard
             AssetDatabase.CreateAsset(combinedMesh, "Assets/" + "CombinedMeshes_" + combineParent.name + "/CombinedMeshes_" + materialName + ".asset");
 
             // Create game object
-            string goName = (materialToMeshFilterList.Count > 1) ? "CombinedMeshes[vtx=" + combinedMesh.vertexCount+ "]_" + materialName : "CombinedMeshes_" + combineParent.name;
+            string goName = (materialToMeshFilterList.Count > 1) ? "CombinedMeshes[vtx=" + combinedMesh.vertexCount + "]_" + materialName : "CombinedMeshes_" + combineParent.name;
             GameObject combinedObject = new GameObject(goName);
             var filter = combinedObject.AddComponent<MeshFilter>();
             cbCount += combinedMesh.vertexCount;
@@ -109,9 +111,11 @@ public class MeshCombineWizard : ScriptableWizard
         // Disable the original and return both to original positions
         //combineParent.SetActive(false);
         combineParent.transform.position = originalPosition;
-        resultGO.transform.parent = combineParent.transform.parent ?? combineParent.transform;
+        Transform parent = combineParent.transform.parent;
+        if (parent != null)
+            resultGO.transform.parent = parent;
         resultGO.transform.position = originalPosition;
-        Debug.Log("total mesh vertices" +cbCount);
+        Debug.Log("total mesh vertices " + cbCount);
         datasmithImporter.removeOriginalMeshes(combineParent.transform);
     }
 
@@ -134,6 +138,7 @@ public class MeshCombineWizard : ScriptableWizard
             int[] tris = toCombine.GetTriangles(subMeshIndex);
             Vector3[] toCombineVerts = toCombine.vertices;
             Vector2[] toCombineUvs = toCombine.uv;
+            int tcLen = toCombine.uv.Length;
             //Debug.Log("tris: " +string.Join(", ",tris));
 
 
@@ -142,7 +147,8 @@ public class MeshCombineWizard : ScriptableWizard
             for (int j = 0; j < tris.Length; j++)
             {
                 verts[j] = toCombineVerts[tris[j]];
-                uvs[j] = toCombineUvs[tris[j]];
+                if (tcLen > 0)
+                    uvs[j] = toCombineUvs[tris[j]];
             }
             //Vector3[] verts = tris.Select(idx => toCombine.vertices[idx]).ToArray();
 
