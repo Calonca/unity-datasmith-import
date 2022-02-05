@@ -12,18 +12,19 @@ using UnityEngine.UI;
 /// <summary>
 /// Handles elements properties
 /// </summary>
-public class MetadataManager : MonoBehaviour {
+public class MetadataManager : MonoBehaviour
+{
 
     public string revitId;
     public string smithId;
     public string xmlNode;
     public GameObject gm;
-
+    /*
     public void OnMouseDown()
     {
         Debug.Log(getDataFromXml());
     }
-
+    */
     /// <summary>
     /// Return a formatted string containg the properties contained in the xml element
     /// </summary>
@@ -51,18 +52,6 @@ public class MetadataManager : MonoBehaviour {
         }
         Debug.Log(output);
         return output;
-    }
-
-    // Start is called before the first frame update
-    void Start()
-    {
-
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
     }
 
 }
