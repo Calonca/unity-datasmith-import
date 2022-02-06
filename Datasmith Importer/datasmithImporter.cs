@@ -25,8 +25,8 @@ public class datasmithImporter : ScriptedImporter
     public bool debugMode = false;
 
     public Vector3 modelRotation = new Vector3(90f, 0f, 0f);
-    private string filePath;
-    private string filename;
+    public string unityFolder{ get; private set; }
+    string filename;
 
     private Dictionary<string, Material> materials = new Dictionary<string, Material>();
     private Dictionary<string, Tuple<Mesh, Material[]>> meshAndMaterials = new Dictionary<string, Tuple<Mesh, Material[]>>();
@@ -50,18 +50,16 @@ public class datasmithImporter : ScriptedImporter
         this.ctx = ctx;
         //Debug.Log("Started reading");
 
-        int pos = ctx.assetPath.LastIndexOf('.');
-        filePath = ctx.assetPath.Substring(0, pos);
+        int folderPos = ctx.assetPath.LastIndexOf('/')+1;
+        unityFolder = ctx.assetPath.Substring(6, folderPos-6);
 
-        pos = filePath.LastIndexOf('/') + 1;
-        filename = filePath.Substring(pos, filePath.Length - pos);
+        int typePos = ctx.assetPath.LastIndexOf('.');
+        filename = ctx.assetPath.Substring(folderPos, typePos-folderPos);
+
+
+        //Debug.Log("The directory is :" + unityFolder + "\n file is named " + filename);
 
         xmlDoc = LoadXMLAsset();
-        var currentDirectory = Directory.GetCurrentDirectory();
-        var purchaseOrderFilepath = Path.Combine(currentDirectory + "\\Assets\\Resources", filename + ".xml");
-
-        //xmlDoc = XElement.Load(purchaseOrderFilepath);
-
 
         //Create prefab
         mainObj = new GameObject(filename);
@@ -85,6 +83,8 @@ public class datasmithImporter : ScriptedImporter
         Afterimport.afterImport(mainObj);
         AssetDatabase.Refresh();
     }
+
+
 
     /// <summary>
     /// Gets the metadata from the document
@@ -287,7 +287,7 @@ public class datasmithImporter : ScriptedImporter
         return paths.Select(n =>
             new KeyValuePair<string, Mesh>(
                 n,
-                UmeshImporter.ImportFromFilepath("Resources\\" + n, 1, this))
+                UmeshImporter.ImportFromFilepath(unityFolder+n, 1, this))
                 ).ToDictionary(x => x.Key, x => x.Value);
 
 
@@ -319,7 +319,7 @@ public class datasmithImporter : ScriptedImporter
     /// </summary>
     private void createMaterial(XElement xmlDoc, XElement materialNode, bool isPbr)
     {
-        Material material = MaterialImporter.getMaterialFromNode(materialNode, xmlDoc, isPbr);
+        Material material = MaterialImporter.getMaterialFromNode(this,materialNode, xmlDoc, isPbr);
         ctx.AddObjectToAsset(material.name, material);
         materials.Add(material.name, material);
     }
@@ -327,7 +327,7 @@ public class datasmithImporter : ScriptedImporter
     private XElement LoadXMLAsset()
     {
 
-        string text = File.ReadAllText(filePath + ".udatasmith");
+        string text = File.ReadAllText("Assets/"+ unityFolder + filename + ".udatasmith");
 
         text = text.Replace("&", "&amp;");//Not the best method https://stackoverflow.com/questions/1473826/parsing-xml-with-ampersand
 

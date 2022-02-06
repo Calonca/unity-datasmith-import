@@ -42,7 +42,7 @@ public class MaterialImporter
 
 
 
-    public static Material getMaterialFromNode(XElement matNode, XElement docRoot, bool isPbr)
+    public static Material getMaterialFromNode(datasmithImporter importer, XElement matNode, XElement docRoot, bool isPbr)
     {
         Material mat = new Material(Shader.Find("Standard"));
         mat.name = matNode.Attribute("name").Value;
@@ -64,7 +64,7 @@ public class MaterialImporter
                         }
                     case "DiffuseMap":
                         {
-                            mat.mainTexture = importTextureNamed(docRoot, value);
+                            mat.mainTexture = importTextureNamed(importer.unityFolder,docRoot, value);
                             break;
                         }
 
@@ -95,7 +95,7 @@ public class MaterialImporter
                     case "Texture":
                         {
                             string pathName = NameConstantPairs.Attribute("PathName").Value;
-                            mat.mainTexture = importTextureNamed(docRoot, pathName);
+                            mat.mainTexture = importTextureNamed(importer.unityFolder,docRoot, pathName);
                             break;
                         }
 
@@ -110,12 +110,14 @@ public class MaterialImporter
         return mat;
     }
 
-    private static Texture2D importTextureNamed(XElement docRoot, string texName)
+    private static Texture2D importTextureNamed(string unityFolder,XElement docRoot, string texName)
     {
         var textureNode = docRoot.Elements("Texture").Where(a=>a.Attribute("name").Value== texName).First();
         string filename = textureNode.Attribute("file").Value;
         int pos = filename.LastIndexOf('.');
-        Texture2D tex = Resources.Load(filename.Substring(0, pos)) as Texture2D;
+        string filepath = unityFolder.Substring(11, unityFolder.Length - 11) + filename.Substring(0, pos);
+        //Debug.Log(filepath);
+        Texture2D tex = Resources.Load(filepath) as Texture2D;
         return tex;
     }
 

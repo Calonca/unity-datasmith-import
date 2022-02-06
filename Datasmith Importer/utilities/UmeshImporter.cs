@@ -174,7 +174,7 @@ public class UmeshImporter
         bool debug = importer.debugMode;
         //Mesh mesh = new Mesh();
         uint filesize = 0;
-        FileStream fileStream = new FileStream("Assets\\" + filepath, FileMode.Open, FileAccess.Read);
+        FileStream fileStream = new FileStream(Application.dataPath + filepath, FileMode.Open, FileAccess.Read);
 
         using (BinaryReader r = new BinaryReader(fileStream, System.Text.Encoding.UTF8))
         {
@@ -276,7 +276,7 @@ public class UmeshImporter
         bool debug = importer.debugMode;
         //Mesh mesh = new Mesh();
         uint filesize = 0;
-        FileStream fileStream = new FileStream("Assets\\" + filepath, FileMode.Open, FileAccess.Read);
+        FileStream fileStream = new FileStream(Application.dataPath + filepath, FileMode.Open, FileAccess.Read);
 
         using (BinaryReader r = new BinaryReader(fileStream, System.Text.Encoding.UTF8))
         {
