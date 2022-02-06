@@ -8,4 +8,5 @@ Installation
 
 I am working on increasing performance, reducing the size of the final models and supporting more materials properties and types.
 
-If you want to decimate the mesh after importing use the decimation branch
+This branch depends on [Unity Mesh Simpifier](https://github.com/Whinarn/UnityMeshSimplifier)<br>
+If you don't want to decimate the mesh after importing use the main branch
