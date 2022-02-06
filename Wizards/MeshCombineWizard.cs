@@ -40,8 +40,11 @@ public class MeshCombineWizard : ScriptableWizard
             Debug.LogError("Mesh Combine Wizard: Parent of objects to combne not assigned. Operation cancelled.");
             return;
         }
+        string prefabFolder = getPath(combineParent);
+        Debug.Log(prefabFolder.Substring(0, prefabFolder.Length));
+        AssetDatabase.CreateFolder(prefabFolder.Substring(0, prefabFolder.Length - 1), "CombinedMeshes_" + combineParent.name);
 
-        AssetDatabase.CreateFolder("Assets", "CombinedMeshes_" + combineParent.name);
+
         // Remember the original position of the object. 
         // For the operation to work, the position must be temporarily set to (0,0,0).
         Vector3 originalPosition = combineParent.transform.position;
@@ -76,7 +79,7 @@ public class MeshCombineWizard : ScriptableWizard
 
             // Create asset
             materialName += "_" + combinedMesh.GetInstanceID();
-            AssetDatabase.CreateAsset(combinedMesh, "Assets/" + "CombinedMeshes_" + combineParent.name + "/CombinedMeshes_" + materialName + ".asset");
+            AssetDatabase.CreateAsset(combinedMesh, prefabFolder + "CombinedMeshes_" + combineParent.name + "/CombinedMeshes_" + materialName + ".asset");
 
             // Create game object
             string goName = (materialToMeshFilterList.Count > 1) ? "CombinedMeshes[vtx=" + combinedMesh.vertexCount + "]_" + materialName : "CombinedMeshes_" + combineParent.name;
@@ -105,7 +108,12 @@ public class MeshCombineWizard : ScriptableWizard
         }
 
         // Create prefab
-        PrefabUtility.SaveAsPrefabAssetAndConnect(resultGO, "Assets/" + resultGO.name + ".prefab", InteractionMode.UserAction);
+        //string myPath = AssetDatabase.GetAssetPath(PrefabUtility.FindPrefabRoot(combineParent));
+        //Debug.Log("combine parent asset path" + myPath);
+
+
+
+        PrefabUtility.SaveAsPrefabAssetAndConnect(resultGO, prefabFolder + resultGO.name + ".prefab", InteractionMode.UserAction);
         //PrefabUtility.ReplacePrefab(resultGO, prefab, ReplacePrefabOptions.ConnectToPrefab);
 
         // Disable the original and return both to original positions
@@ -117,6 +125,19 @@ public class MeshCombineWizard : ScriptableWizard
         resultGO.transform.position = originalPosition;
         Debug.Log("total mesh vertices " + cbCount);
         datasmithImporter.removeOriginalMeshes(combineParent.transform);
+    }
+
+    public static string getPath(GameObject g)
+    {
+        UnityEngine.Object GameObject2 = PrefabUtility.GetPrefabParent(g);
+        string prefabPath = AssetDatabase.GetAssetPath(GameObject2);
+        int folderPos = prefabPath.LastIndexOf('/') + 1;
+        string prefabFolder = prefabPath.Substring(0, folderPos);
+
+        if (prefabFolder != null && prefabFolder!="")
+            return prefabFolder;
+        else return "Assets/";
+
     }
 
     private static CombineInstance[] createCombine(List<Tuple<MeshFilter, int>> meshesWithSameMaterial)
